@@ -341,6 +341,7 @@ const CatererBillCard = ({ bill, onPaymentUpdate }) => {
             rate: item?.rate,
             total: item?.total_amount,
             gst_amount: item?.gst_amount,
+            market_price: item?.market_price || 0,
             isMixHeader: true,
             mixName: item?.product_name, // Use product name as unique identifier
             // Also include mix items for rendering
@@ -355,6 +356,7 @@ const CatererBillCard = ({ bill, onPaymentUpdate }) => {
             rate: item?.rate,
             total: item?.total_amount,
             gst_amount: item?.gst_amount,
+            market_price: item?.market_price || 0,
             isMixHeader: false,
             isMixItem: false
           };

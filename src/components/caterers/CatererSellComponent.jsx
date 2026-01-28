@@ -203,7 +203,8 @@ const CatererSellComponent = () => {
         product_name: selectedProduct ? selectedProduct.name : '',
         rate: selectedProduct ? (selectedProduct.caterer_price).toString() : '',
         gst: selectedProduct ? (selectedProduct.gst || 0).toString() : '0',
-        unit: selectedProduct ? (selectedProduct.unit || 'kg') : 'kg'
+        unit: selectedProduct ? (selectedProduct.unit || 'kg') : 'kg',
+        market_price: selectedProduct ? (selectedProduct.market_price || 0) : 0
       }));
     } else {
       setCurrentItem(prev => ({
@@ -327,7 +328,8 @@ const CatererSellComponent = () => {
             product_name: currentItem.product_name,
             rate: selectedProduct.caterer_price,
             gst: selectedProduct.gst || 0,
-            unit: selectedProduct.unit || 'kg'
+            unit: selectedProduct.unit || 'kg',
+            market_price: selectedProduct.market_price || 0
           },
           availableBatches: batches,
           preAllocatedQuantities: preAllocated,

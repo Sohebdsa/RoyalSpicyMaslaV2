@@ -203,7 +203,7 @@ const BillContentA4 = ({ billData }) => {
 
     // Render items table
     const renderItemsTable = (pageItems, pageNumber) => (
-        <div className="bill-items-section mb-3">
+        <div className="bill-items-section mb-3 min-h-[350px]">
             {pageNumber === 1 && (
                 <h3 className="text-s font-bold text-gray-900 mb-2">ITEMS</h3>
             )}
@@ -232,7 +232,7 @@ const BillContentA4 = ({ billData }) => {
                         return (
                             <Fragment key={index}>
                                 {/* Main item row */}
-                                <tr className={`border-b border-gray-200 ${item.isMixHeader ? 'bg-orange-50' : ''}`}>
+                                <tr className={` ${item.isMixHeader ? 'bg-orange-50' : ''}`}>
                                     <td className="py-1.5 px-2 text-s text-gray-900">
                                         {item.product_name}
                                         {item.isMixHeader && (
@@ -280,13 +280,59 @@ const BillContentA4 = ({ billData }) => {
         </div>
     );
 
+    // Calculate total saved amount based on market price vs selling price
+    const calculateTotalSaved = () => {
+        if (!items || items.length === 0) return 0;
+
+        console.log('🔍 Calculating savings for items:', items);
+
+        return items.reduce((total, item) => {
+            // Skip mix items to avoid double counting (only count mix headers)
+            if (item.isMixItem) return total;
+
+            const marketPrice = parseFloat(item.market_price || 0);
+            const sellingRate = parseFloat(item.rate || 0);
+            const quantity = parseFloat(item.quantity || 0);
+
+            console.log(`📊 Item: ${item.product_name}`, {
+                market_price: item.market_price,
+                marketPrice,
+                sellingRate,
+                quantity,
+                unit: item.unit
+            });
+
+            // If no market price is set, no savings to calculate
+            if (marketPrice <= 0 || sellingRate <= 0) return total;
+
+            // Handle unit conversion for calculation
+            let calcQuantity = quantity;
+            if (item.unit === 'gram' || item.unit === 'g') {
+                calcQuantity = quantity / 1000; // Convert to kg
+            }
+
+            // Calculate savings: (market_price - selling_price) * quantity
+            const savingsPerUnit = marketPrice - sellingRate;
+            if (savingsPerUnit > 0) {
+                const itemSavings = savingsPerUnit * calcQuantity;
+                console.log(`💰 Savings for ${item.product_name}: ₹${itemSavings.toFixed(2)}`);
+                return total + itemSavings;
+            }
+
+            return total;
+        }, 0);
+    };
+
+    const totalSaved = calculateTotalSaved();
+    console.log('💵 Total Saved:', totalSaved);
+
     // Render summary (only on last page)
     const renderSummary = () => (
         <>
             {/* Other Charges */}
             {otherCharges && otherCharges.length > 0 && (
                 <div className="mb-3 pb-3 border-b border-gray-300">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2">OTHER CHARGES</h3>
+                    <h3 className="text-base font-bold text-gray-900 mb-2">OTHER CHARGES</h3>
                     <div className="space-y-1">
                         {otherCharges.map((charge, index) => {
                             const isDiscount = charge.type === 'discount' || charge.name?.toLowerCase().includes('discount');
@@ -305,7 +351,7 @@ const BillContentA4 = ({ billData }) => {
                             }
 
                             return (
-                                <div key={index} className="flex justify-between text-xs">
+                                <div key={index} className="flex justify-between text-base">
                                     <span className="text-gray-700">{charge.name}</span>
                                     <span className={`font-semibold ${isDiscount ? 'text-green-600' : 'text-gray-900'}`}>
                                         {isDiscount ? '-' : '+'}₹{formatAmount(chargeAmount)}
@@ -331,10 +377,12 @@ const BillContentA4 = ({ billData }) => {
                             <span className="font-semibold text-gray-900">₹{formatAmount(totalGst)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between text-base">
-                        <span className="text-gray-700">Items Total</span>
-                        <span className="font-semibold text-gray-900">₹{formatAmount(itemsTotal)}</span>
-                    </div>
+                    {totalSaved > 0 && (
+                        <div className="flex justify-between text-base">
+                            <span className="text-gray-700">You Saved</span>
+                            <span className="font-semibold text-green-600">₹{formatAmount(totalSaved)}</span>
+                        </div>
+                    )}
                     {otherChargesTotal > 0 && (
                         <div className="flex justify-between text-base">
                             <span className="text-gray-700">Other Charges</span>

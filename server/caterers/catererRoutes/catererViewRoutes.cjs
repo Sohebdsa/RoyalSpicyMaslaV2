@@ -135,9 +135,11 @@ router.get('/:caterer_id/sales', logRequest, async (req, res) => {
 
     if (saleIds.length > 0) {
       const [items] = await db.pool.execute(
-        `SELECT * FROM caterer_sale_items
-         WHERE sale_id IN (${saleIds.map(() => '?').join(',')})
-         ORDER BY id`,
+        `SELECT csi.*, p.market_price
+         FROM caterer_sale_items csi
+         LEFT JOIN products p ON csi.product_id = p.id
+         WHERE csi.sale_id IN (${saleIds.map(() => '?').join(',')})
+         ORDER BY csi.id`,
         saleIds
       );
       allItems = items;
@@ -295,9 +297,11 @@ router.get('/:caterer_id', logRequest, async (req, res) => {
 
     if (saleIds.length > 0) {
       const [items] = await db.pool.execute(
-        `SELECT * FROM caterer_sale_items 
-         WHERE sale_id IN (${saleIds.map(() => '?').join(',')})
-         ORDER BY id`,
+        `SELECT csi.*, p.market_price
+         FROM caterer_sale_items csi
+         LEFT JOIN products p ON csi.product_id = p.id
+         WHERE csi.sale_id IN (${saleIds.map(() => '?').join(',')})
+         ORDER BY csi.id`,
         saleIds
       );
       allItems = items;
