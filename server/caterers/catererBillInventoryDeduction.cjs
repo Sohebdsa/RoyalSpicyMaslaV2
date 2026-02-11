@@ -390,13 +390,14 @@ const processRegularProductDeduction = async (connection, item, saleId) => {
   const finalUnit = normalizeUnit(item.unit || inventoryItem.inventory_unit);
   const batchValue = inventoryItem.batch ?? 'default';
 
-  // Use cost_per_kg from the inventory batch (not the sale rate)
-  const costPerUnit = parseFloat(inventoryItem.cost_per_kg) || 0;
-  const totalValue = quantityToDeduct * costPerUnit;
+  // FIXED: Use the sale rate from the item (selling price to caterer)
+  // instead of cost_per_kg from inventory (original purchase price)
+  const saleRate = parseFloat(item.rate) || 0;
+  const totalValue = quantityToDeduct * saleRate;
 
   console.log(`   📝 Unit: ${finalUnit}`);
-  console.log(`   📝 Cost/unit (from inventory): ₹${costPerUnit}`);
-  console.log(`   📝 Total value: ₹${totalValue.toFixed(2)}`);
+  console.log(`   📝 Sale rate (to caterer): ₹${saleRate}`);
+  console.log(`   📝 Total value (at sale rate): ₹${totalValue.toFixed(2)}`);
 
   const [insertResult] = await connection.execute(
     `INSERT INTO inventory_history
@@ -410,7 +411,7 @@ const processRegularProductDeduction = async (connection, item, saleId) => {
       'deducted',
       `Caterer sale deduction - Sale ID: ${saleId}, Item: ${item.product_name}, Sale Rate: ₹${item.rate || 0}`,
       batchValue,
-      costPerUnit,
+      saleRate,
       -totalValue,
       'caterer_sale',
       saleId
