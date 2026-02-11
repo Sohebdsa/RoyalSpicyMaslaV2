@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeftIcon,
   PlusIcon,
   ShoppingCartIcon,
@@ -16,12 +16,12 @@ const SupplierPurchasePage = () => {
   const { supplierId } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
-  
+
   const [supplier, setSupplier] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [billNumber, setBillNumber] = useState('#0001');
-  
+
   // Purchase form state
   const [purchaseData, setPurchaseData] = useState({
     purchase_date: new Date().toISOString().split('T')[0],
@@ -45,7 +45,8 @@ const SupplierPurchasePage = () => {
   const [currentItem, setCurrentItem] = useState({
     product_id: '',
     product_name: '',
-    quantity: '',
+    pack_quantity: '1',
+    quantity_per_pack: '',
     unit: 'kg',
     rate: '',
     gst: '0'
@@ -138,7 +139,7 @@ const SupplierPurchasePage = () => {
 
   const handleCurrentItemChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === 'product_id') {
       const selectedProduct = products.find(p => p.id === parseInt(value));
       setCurrentItem(prev => ({
@@ -177,9 +178,9 @@ const SupplierPurchasePage = () => {
         showError('Image size should be less than 5MB');
         return;
       }
-      
+
       setPurchaseData(prev => ({ ...prev, receipt_image: file }));
-      
+
       const reader = new FileReader();
       reader.onload = (e) => setReceiptPreview(e.target.result);
       reader.readAsDataURL(file);
@@ -188,17 +189,23 @@ const SupplierPurchasePage = () => {
 
   const addItem = () => {
     // Validation
-    if (!currentItem.product_id || !currentItem.quantity || !currentItem.rate) {
+    if (!currentItem.product_id || !currentItem.pack_quantity || !currentItem.quantity_per_pack || !currentItem.rate) {
       showError('Please fill all required fields');
       return;
     }
 
-    const quantity = parseFloat(currentItem.quantity);
+    const packQuantity = parseFloat(currentItem.pack_quantity);
+    const quantityPerPack = parseFloat(currentItem.quantity_per_pack);
     const rate = parseFloat(currentItem.rate);
     const gst = parseFloat(currentItem.gst);
 
-    if (isNaN(quantity) || quantity <= 0) {
-      showError('Please enter a valid quantity');
+    if (isNaN(packQuantity) || packQuantity <= 0) {
+      showError('Please enter a valid pack quantity');
+      return;
+    }
+
+    if (isNaN(quantityPerPack) || quantityPerPack <= 0) {
+      showError('Please enter a valid quantity per pack');
       return;
     }
 
@@ -212,14 +219,20 @@ const SupplierPurchasePage = () => {
       return;
     }
 
+    // Calculate total quantity
+    const totalQuantity = packQuantity * quantityPerPack;
+
     // Add new item as a separate entry (no merging logic)
-    const subtotal = quantity * rate;
+    // Subtotal is based on pack_quantity × rate (rate is per pack)
+    const subtotal = packQuantity * rate;
     const gstAmount = (subtotal * gst) / 100;
     const total = subtotal + gstAmount;
 
     const newItem = {
       ...currentItem,
-      quantity,
+      pack_quantity: packQuantity,
+      quantity_per_pack: quantityPerPack,
+      total_quantity: totalQuantity,
       rate,
       gst,
       subtotal,
@@ -238,7 +251,8 @@ const SupplierPurchasePage = () => {
     setCurrentItem({
       product_id: '',
       product_name: '',
-      quantity: '',
+      pack_quantity: '1',
+      quantity_per_pack: '',
       unit: 'kg',
       rate: '',
       gst: '0'
@@ -305,7 +319,7 @@ const SupplierPurchasePage = () => {
     const subtotal = purchaseData.items.reduce((sum, item) => sum + item.subtotal, 0);
     const totalGst = purchaseData.items.reduce((sum, item) => sum + item.gst_amount, 0);
     const itemsTotal = purchaseData.items.reduce((sum, item) => sum + item.total, 0);
-    
+
     // Calculate other charges
     let otherChargesTotal = 0;
     purchaseData.other_charges.forEach(charge => {
@@ -315,15 +329,15 @@ const SupplierPurchasePage = () => {
         otherChargesTotal += (itemsTotal * charge.value) / 100;
       }
     });
-    
+
     const grandTotal = itemsTotal + otherChargesTotal;
-    
+
     return { subtotal, totalGst, itemsTotal, otherChargesTotal, grandTotal };
   };
 
   const getPaymentAmount = () => {
     const { grandTotal } = calculateTotals();
-    
+
     switch (purchaseData.payment_option) {
       case 'full':
         return grandTotal;
@@ -351,10 +365,10 @@ const SupplierPurchasePage = () => {
 
     try {
       setLoading(true);
-      
+
       const { subtotal, totalGst, itemsTotal, otherChargesTotal, grandTotal } = calculateTotals();
       const paymentAmount = getPaymentAmount();
-      
+
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('supplier_id', supplierId);
@@ -389,7 +403,7 @@ const SupplierPurchasePage = () => {
       } else {
         showError(data.message || 'Failed to complete purchase');
       }
-      
+
     } catch (error) {
       console.error('Error completing purchase:', error);
       showError('Failed to complete purchase');
@@ -431,7 +445,7 @@ const SupplierPurchasePage = () => {
                 <p className="text-gray-600 mt-1">Create a new purchase order</p>
               </div>
             </div>
-            
+
             <div className="text-right">
               <p className="text-sm text-gray-600">Bill Number</p>
               <p className="text-xl font-bold text-orange-600">{billNumber}</p>
@@ -446,7 +460,7 @@ const SupplierPurchasePage = () => {
               <DocumentTextIcon className="h-5 w-5 text-orange-600 mr-2" />
               Purchase Details
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -464,7 +478,7 @@ const SupplierPurchasePage = () => {
                   <CalendarIcon className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
                   Supplier Details
@@ -492,7 +506,7 @@ const SupplierPurchasePage = () => {
 
             {/* Add Item Form */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
                 {/* Product Dropdown */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -515,15 +529,32 @@ const SupplierPurchasePage = () => {
                   </select>
                 </div>
 
-                {/* Quantity */}
+                {/* Pack Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Quantity <span className="text-red-500">*</span>
+                    Pack Qty <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="quantity"
-                    value={currentItem.quantity}
+                    name="pack_quantity"
+                    value={currentItem.pack_quantity}
+                    onChange={handleCurrentItemChange}
+                    step="0.001"
+                    min="0"
+                    placeholder="1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Quantity per Pack */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Qty/Pack <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity_per_pack"
+                    value={currentItem.quantity_per_pack}
                     onChange={handleCurrentItemChange}
                     step="0.001"
                     min="0"
@@ -554,7 +585,7 @@ const SupplierPurchasePage = () => {
                 {/* Rate */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Rate (₹) <span className="text-red-500">*</span>
+                    Rate/Pack (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -605,6 +636,15 @@ const SupplierPurchasePage = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Total Quantity Display */}
+              {currentItem.pack_quantity && currentItem.quantity_per_pack && (
+                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-medium">Total Quantity:</span> {(parseFloat(currentItem.pack_quantity) * parseFloat(currentItem.quantity_per_pack)).toFixed(3)} {currentItem.unit}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Items List */}
@@ -617,13 +657,19 @@ const SupplierPurchasePage = () => {
                         Product
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantity
+                        Pack Qty
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Qty/Pack
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Qty
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Unit
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate (₹)
+                        Rate/Pack (₹)
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         GST (%)
@@ -649,7 +695,13 @@ const SupplierPurchasePage = () => {
                           {item.product_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.quantity}
+                          {item.pack_quantity}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {item.quantity_per_pack}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                          {item.total_quantity.toFixed(3)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.unit}
@@ -984,9 +1036,8 @@ const SupplierPurchasePage = () => {
                     Receipt Image (Optional)
                   </label>
                   <div className="flex items-center justify-center w-full">
-                    <label className={`flex flex-col w-full h-32 border-2 border-dashed rounded-md cursor-pointer transition-all ${
-                      receiptPreview ? 'border-orange-300 bg-orange-50' : 'border-gray-300 hover:bg-gray-50'
-                    }`}>
+                    <label className={`flex flex-col w-full h-32 border-2 border-dashed rounded-md cursor-pointer transition-all ${receiptPreview ? 'border-orange-300 bg-orange-50' : 'border-gray-300 hover:bg-gray-50'
+                      }`}>
                       {receiptPreview ? (
                         <div className="relative w-full h-full">
                           <img

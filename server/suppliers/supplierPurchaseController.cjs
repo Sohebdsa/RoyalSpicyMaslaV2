@@ -322,6 +322,9 @@ const createSupplierPurchase = async (req, res) => {
         // Use subtotal (without GST) for cost calculation
         const costValue = Math.round(parseFloat(item.subtotal) || 0);
 
+        // Use total_quantity if available (new pack quantity feature), otherwise fall back to quantity
+        const inventoryQuantity = parseFloat(item.total_quantity || item.quantity || 0);
+
         await pool.execute(
           `INSERT INTO inventory (
             product_id,
@@ -340,9 +343,9 @@ const createSupplierPurchase = async (req, res) => {
             productId,
             item.product_name || 'Unknown Product',
             batch,
-            parseFloat(item.quantity) || 0,
+            inventoryQuantity,
             costValue,
-            (item.unit === 'kg' && parseFloat(item.quantity) > 0) ? (costValue / parseFloat(item.quantity)) : 0,
+            (item.unit === 'kg' && inventoryQuantity > 0) ? (costValue / inventoryQuantity) : 0,
             item.unit || 'kg',
             purchaseId
           ]
@@ -367,9 +370,9 @@ const createSupplierPurchase = async (req, res) => {
             productId,
             item.product_name || 'Unknown Product',
             batch,
-            parseFloat(item.quantity) || 0,
+            inventoryQuantity,
             costValue,
-            (item.unit === 'kg' && parseFloat(item.quantity) > 0) ? (costValue / parseFloat(item.quantity)) : 0,
+            (item.unit === 'kg' && inventoryQuantity > 0) ? (costValue / inventoryQuantity) : 0,
             item.unit || 'kg',
             purchaseId,
             `Purchase from supplier - Bill: ${bill_number}`
@@ -395,9 +398,9 @@ const createSupplierPurchase = async (req, res) => {
           [
             productId,
             item.product_name || 'Unknown Product',
-            parseFloat(item.quantity) || 0,
+            inventoryQuantity,
             costValue,
-            (item.unit === 'kg' && parseFloat(item.quantity) > 0) ? (costValue / parseFloat(item.quantity)) : 0,
+            (item.unit === 'kg' && inventoryQuantity > 0) ? (costValue / inventoryQuantity) : 0,
             item.unit || 'kg'
           ]
         );
