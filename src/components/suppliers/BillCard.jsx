@@ -142,7 +142,7 @@ const BillCard = ({ bill, onPaymentUpdate }) => {
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Header - Always Visible */}
-        <div 
+        <div
           className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
           onClick={() => setIsExpanded(!isExpanded)}
         >
@@ -155,7 +155,7 @@ const BillCard = ({ bill, onPaymentUpdate }) => {
                   <ChevronRightIcon className="h-5 w-5" />
                 )}
               </button>
-              
+
               <div>
                 <div className="flex items-center space-x-3">
                   <h3 className="text-lg font-semibold text-gray-900">
@@ -225,7 +225,13 @@ const BillCard = ({ bill, onPaymentUpdate }) => {
                         <div className="flex-1">
                           <span className="font-medium">{item.product_name || 'Unknown Product'}</span>
                           <span className="text-gray-600 ml-2">
-                            ({item.quantity || 0} {item.unit || 'unit'} × ₹{item.rate || 0})
+                            {item.pack_quantity && item.quantity_per_pack ? (
+                              // New pack quantity format
+                              `(${item.pack_quantity} packs × ${item.quantity_per_pack} ${item.unit || 'kg'}/pack = ${item.total_quantity || (item.pack_quantity * item.quantity_per_pack).toFixed(3)} ${item.unit || 'kg'} @ ₹${item.rate || 0}/pack)`
+                            ) : (
+                              // Fallback to old format for backward compatibility
+                              `(${item.quantity || item.total_quantity || 0} ${item.unit || 'unit'} × ₹${item.rate || 0})`
+                            )}
                           </span>
                         </div>
                         <div className="text-right">
@@ -243,7 +249,7 @@ const BillCard = ({ bill, onPaymentUpdate }) => {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Bill Summary */}
                   <div className="border-t border-gray-200 mt-4 pt-4 space-y-1">
                     <div className="flex justify-between text-sm">
@@ -310,7 +316,7 @@ const BillCard = ({ bill, onPaymentUpdate }) => {
                   <CurrencyRupeeIcon className="h-4 w-4 mr-2" />
                   Payment Information
                 </h4>
-                
+
                 {bill.status === 'pending' && (!bill.payment_records || bill.payment_records.length === 0) ? (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-center justify-between">
