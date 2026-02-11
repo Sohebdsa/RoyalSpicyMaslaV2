@@ -65,6 +65,20 @@ const InventoryTable = ({ inventory, loading, onEdit, onDelete, onMerge }) => {
     return 'bg-green-100 text-green-800';
   };
 
+  // Format quantity to auto-convert grams to kg for better readability
+  const formatQuantity = (quantity, unit) => {
+    const qty = parseFloat(quantity || 0);
+
+    // If unit is gram and quantity >= 1000, convert to kg
+    if ((unit === 'gram' || unit === 'g') && qty >= 1000) {
+      const kgValue = (qty / 1000).toFixed(3);
+      return `${kgValue} kg`;
+    }
+
+    // Otherwise, display as-is
+    return `${qty.toFixed(3)} ${unit}`;
+  };
+
   if (loading) {
     return (
       <div className="p-12 text-center">
@@ -153,7 +167,7 @@ const InventoryTable = ({ inventory, loading, onEdit, onDelete, onMerge }) => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm text-gray-900 font-semibold">
-                    {parseFloat(item.total_quantity || 0).toFixed(3)} {item.unit}
+                    {formatQuantity(item.total_quantity, item.unit)}
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

@@ -228,6 +228,26 @@ const createSupplierPurchase = async (req, res) => {
       });
     }
 
+    // Normalize item units to base units (convert grams to kg) BEFORE any processing
+    // This ensures inventory aggregation works correctly
+    if (items && Array.isArray(items)) {
+      items.forEach(item => {
+        let finalQuantity = parseFloat(item.total_quantity || item.quantity) || 0;
+        let finalUnit = item.unit || 'kg';
+
+        // Convert grams to kg for inventory consistency
+        if (finalUnit === 'gram' || finalUnit === 'g') {
+          finalQuantity = finalQuantity / 1000;
+          finalUnit = 'kg';
+        }
+
+        // Update item with normalized values
+        item.total_quantity = finalQuantity;
+        item.quantity = finalQuantity;
+        item.unit = finalUnit;
+      });
+    }
+
     // Calculate amount pending (round to integers)
     const amountPending = Math.round(parseFloat(grand_total) - parseFloat(payment_amount));
 

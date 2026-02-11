@@ -202,7 +202,7 @@ const CatererSellComponent = () => {
         ...prev,
         product_id: value,
         product_name: selectedProduct ? selectedProduct.name : '',
-        rate: selectedProduct ? (selectedProduct.caterer_price).toString() : '',
+        rate: selectedProduct && selectedProduct.caterer_price ? selectedProduct.caterer_price.toString() : '',
         gst: selectedProduct ? (selectedProduct.gst || 0).toString() : '0',
         unit: selectedProduct ? (selectedProduct.unit || 'kg') : 'kg',
         market_price: selectedProduct ? (selectedProduct.market_price || 0) : 0

@@ -123,6 +123,28 @@ router.post('/create',
 
       const saleData = req.body;
       console.log(saleData);
+
+      // Normalize item units to base units (convert grams to kg) BEFORE any processing
+      // This ensures inventory checks work correctly
+      if (saleData.items && Array.isArray(saleData.items)) {
+        saleData.items = saleData.items.map(item => {
+          let finalQuantity = parseFloat(item.quantity) || 0;
+          let finalUnit = item.unit || 'kg';
+
+          // Convert grams to kg for inventory consistency
+          if (finalUnit === 'gram' || finalUnit === 'g') {
+            finalQuantity = finalQuantity / 1000;
+            finalUnit = 'kg';
+          }
+
+          return {
+            ...item,
+            quantity: finalQuantity,
+            unit: finalUnit
+          };
+        });
+      }
+
       const timestamp = new Date().toISOString();
 
       // Generate unique bill number if not provided or if it already exists
