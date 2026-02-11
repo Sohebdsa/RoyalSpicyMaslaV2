@@ -66,7 +66,8 @@ const CatererSellComponent = () => {
   const [currentItem, setCurrentItem] = useState({
     product_id: '',
     product_name: '',
-    quantity: '',
+    pack_quantity: '1',
+    quantity_per_pack: '',
     unit: 'kg',
     rate: '',
     gst: '0'
@@ -276,14 +277,18 @@ const CatererSellComponent = () => {
     }
 
     // Determine base unit quantity
-    // If user selected 'gram' but product is 'kg', convert input to kg
-    let baseUnitQuantity = parseFloat(currentItem.quantity) || 0;
+    // Calculate total quantity: pack_quantity × quantity_per_pack
+    const packQuantity = parseFloat(currentItem.pack_quantity) || 0;
+    const quantityPerPack = parseFloat(currentItem.quantity_per_pack) || 0;
+    let baseUnitQuantity = packQuantity * quantityPerPack;
+
     const isGram = currentItem.unit === 'gram' || currentItem.unit === 'g';
     const isProductKg = (selectedProduct.unit || 'kg') === 'kg';
 
     if (isGram && isProductKg) {
       baseUnitQuantity = baseUnitQuantity / 1000;
     }
+
 
     try {
       // Fetch available batches for the selected product
@@ -406,17 +411,13 @@ const CatererSellComponent = () => {
         expiry_date: null
       };
 
-      setSellData(prev => ({
-        ...prev,
-        items: [...prev.items, itemWithBatchInfo]
-      }));
     }
-
     // Reset current item
     setCurrentItem({
       product_id: '',
       product_name: '',
-      quantity: '',
+      pack_quantity: '1',
+      quantity_per_pack: '',
       unit: 'kg',
       rate: '',
       gst: '0'
@@ -1143,7 +1144,7 @@ const CatererSellComponent = () => {
 
             {/* Add Item Form */}
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
                 {/* Product Dropdown */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -1166,19 +1167,38 @@ const CatererSellComponent = () => {
                   </select>
                 </div>
 
-                {/* Quantity */}
+                {/* Pack Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Quantity <span className="text-red-500">*</span>
+                    No. of Packs <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="quantity"
-                    value={currentItem.quantity}
+                    name="pack_quantity"
+                    value={currentItem.pack_quantity}
                     onChange={handleCurrentItemChange}
                     step="0.001"
                     min="0"
-                    placeholder="0.000"
+                    placeholder="e.g., 10"
+                    title="How many packs are you selling?"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                </div>
+
+                {/* Quantity per Pack */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Weight/Pack <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity_per_pack"
+                    value={currentItem.quantity_per_pack}
+                    onChange={handleCurrentItemChange}
+                    step="0.001"
+                    min="0"
+                    placeholder="e.g., 5"
+                    title="Weight or quantity per pack"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
@@ -1205,7 +1225,7 @@ const CatererSellComponent = () => {
                 {/* Rate */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Rate (₹) <span className="text-red-500">*</span>
+                    Price per Pack (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1268,6 +1288,21 @@ const CatererSellComponent = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Total Quantity Display */}
+              {currentItem.pack_quantity && currentItem.quantity_per_pack && (
+                <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-md">
+                  <p className="text-sm text-blue-900">
+                    <span className="font-semibold">📦 Total Quantity:</span>
+                    <span className="ml-2 text-lg font-bold text-blue-700">
+                      {(parseFloat(currentItem.pack_quantity) * parseFloat(currentItem.quantity_per_pack)).toFixed(3)} {currentItem.unit}
+                    </span>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    ({currentItem.pack_quantity} packs × {currentItem.quantity_per_pack} {currentItem.unit}/pack)
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Items List */}
