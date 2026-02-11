@@ -84,7 +84,7 @@ export default function CatererBatchSelectionDialog({
         return [...prev, entry];
       });
     },
-    [availableBatches]
+    [availableBatches, preAllocatedQuantities]
   );
 
   const selectBatch = useCallback((batchId) => {

@@ -331,8 +331,8 @@ const CatererSellComponent = () => {
           product: {
             product_id: currentItem.product_id,
             product_name: currentItem.product_name,
-            rate: selectedProduct.caterer_price,
-            gst: selectedProduct.gst || 0,
+            rate: parseFloat(currentItem.rate) || selectedProduct.caterer_price || 0,
+            gst: parseFloat(currentItem.gst) || selectedProduct.gst || 0,
             unit: selectedProduct.unit || 'kg',
             market_price: selectedProduct.market_price || 0
           },
@@ -411,6 +411,10 @@ const CatererSellComponent = () => {
         expiry_date: null
       };
 
+      setSellData(prev => ({
+        ...prev,
+        items: [...prev.items, itemWithBatchInfo]
+      }));
     }
     // Reset current item
     setCurrentItem({
@@ -1290,7 +1294,7 @@ const CatererSellComponent = () => {
               </div>
 
               {/* Total Quantity Display */}
-              {currentItem.pack_quantity && currentItem.quantity_per_pack && (
+              {/* {currentItem.pack_quantity && currentItem.quantity_per_pack && (
                 <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-md">
                   <p className="text-sm text-blue-900">
                     <span className="font-semibold">📦 Total Quantity:</span>
@@ -1302,7 +1306,7 @@ const CatererSellComponent = () => {
                     ({currentItem.pack_quantity} packs × {currentItem.quantity_per_pack} {currentItem.unit}/pack)
                   </p>
                 </div>
-              )}
+              )} */}
             </div>
 
             {/* Items List */}
