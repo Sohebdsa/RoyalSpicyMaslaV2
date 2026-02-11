@@ -532,7 +532,7 @@ const SupplierPurchasePage = () => {
                 {/* Pack Quantity */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Pack Qty <span className="text-red-500">*</span>
+                    No. of Packs <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -541,7 +541,8 @@ const SupplierPurchasePage = () => {
                     onChange={handleCurrentItemChange}
                     step="0.001"
                     min="0"
-                    placeholder="1"
+                    placeholder="e.g., 10"
+                    title="How many packs are you purchasing?"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
@@ -549,7 +550,7 @@ const SupplierPurchasePage = () => {
                 {/* Quantity per Pack */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Qty/Pack <span className="text-red-500">*</span>
+                    Weight/Pack <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -558,7 +559,8 @@ const SupplierPurchasePage = () => {
                     onChange={handleCurrentItemChange}
                     step="0.001"
                     min="0"
-                    placeholder="0.000"
+                    placeholder="e.g., 5"
+                    title="Weight or quantity per pack"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                   />
                 </div>
@@ -585,7 +587,7 @@ const SupplierPurchasePage = () => {
                 {/* Rate */}
                 <div>
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Rate/Pack (₹) <span className="text-red-500">*</span>
+                    Price per Pack (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -639,9 +641,15 @@ const SupplierPurchasePage = () => {
 
               {/* Total Quantity Display */}
               {currentItem.pack_quantity && currentItem.quantity_per_pack && (
-                <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-800">
-                    <span className="font-medium">Total Quantity:</span> {(parseFloat(currentItem.pack_quantity) * parseFloat(currentItem.quantity_per_pack)).toFixed(3)} {currentItem.unit}
+                <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-md">
+                  <p className="text-sm text-blue-900">
+                    <span className="font-semibold">📦 Total Quantity:</span>
+                    <span className="ml-2 text-lg font-bold text-blue-700">
+                      {(parseFloat(currentItem.pack_quantity) * parseFloat(currentItem.quantity_per_pack)).toFixed(3)} {currentItem.unit}
+                    </span>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    ({currentItem.pack_quantity} packs × {currentItem.quantity_per_pack} {currentItem.unit}/pack)
                   </p>
                 </div>
               )}
@@ -657,19 +665,19 @@ const SupplierPurchasePage = () => {
                         Product
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pack Qty
+                        No. of Packs
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Qty/Pack
+                        Weight/Pack
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Qty
+                        Total Quantity
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Unit
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rate/Pack (₹)
+                        Price/Pack (₹)
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         GST (%)
