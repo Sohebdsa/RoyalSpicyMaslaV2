@@ -83,11 +83,15 @@ const getInventorySummary = async (req, res) => {
             WHEN i.action = 'deducted' THEN -i.value
             ELSE 0
           END) as total_value,
-          -- Use the actual cost_per_kg from the batch purchase (weighted average of 'added' actions)
+          -- Use cost_per_kg: weighted average from 'added' actions, fallback to any record with cost_per_kg, then value/qty
           CASE
             WHEN SUM(CASE WHEN i.action = 'added' THEN i.quantity ELSE 0 END) > 0 THEN
               SUM(CASE WHEN i.action = 'added' THEN i.cost_per_kg * i.quantity ELSE 0 END) / 
               SUM(CASE WHEN i.action = 'added' THEN i.quantity ELSE 0 END)
+            WHEN MAX(i.cost_per_kg) > 0 THEN MAX(i.cost_per_kg)
+            WHEN SUM(CASE WHEN i.action != 'deducted' THEN i.quantity ELSE 0 END) > 0 THEN
+              SUM(CASE WHEN i.action != 'deducted' THEN i.value ELSE 0 END) /
+              SUM(CASE WHEN i.action != 'deducted' THEN i.quantity ELSE 0 END)
             ELSE 0
           END as cost_per_kg,
           MAX(i.created_at) as last_updated
@@ -287,8 +291,8 @@ const addInventoryEntry = async (req, res) => {
     const product = productResult[0];
     const productUnit = unit || product.unit || 'kg';
 
-    // Calculate cost per kg
-    const costPerKg = productUnit === 'kg' && parseFloat(quantity) > 0 ? (parseFloat(value || 0) / parseFloat(quantity)) : 0;
+    // Calculate cost per unit (works for any unit: kg, litre, etc.)
+    const costPerKg = parseFloat(quantity) > 0 ? (parseFloat(value || 0) / parseFloat(quantity)) : 0;
 
     const query = `
       INSERT INTO inventory (

@@ -70,14 +70,18 @@ const CatererSellComponent = () => {
     quantity_per_pack: '',
     unit: 'kg',
     rate: '',
-    gst: '0'
+    gst: '0',
+    total_amount: ''
   });
+
+  const [isPriceMode, setIsPriceMode] = useState(false);
 
   // Batch selection dialog state
   const [batchSelectionDialog, setBatchSelectionDialog] = useState({
     isOpen: false,
     product: null,
-    availableBatches: []
+    availableBatches: [],
+    targetTotal: null
   });
 
   // Mix calculator dialog state
@@ -215,6 +219,17 @@ const CatererSellComponent = () => {
     }
   };
 
+  const togglePriceMode = () => {
+    setIsPriceMode(!isPriceMode);
+    // Reset relevant fields when switching modes
+    setCurrentItem(prev => ({
+      ...prev,
+      pack_quantity: '1',
+      quantity_per_pack: '',
+      total_amount: ''
+    }));
+  };
+
   const handleCurrentChargeChange = (e) => {
     const { name, value } = e.target;
 
@@ -277,21 +292,34 @@ const CatererSellComponent = () => {
     }
 
     // Determine base unit quantity
-    // Calculate total quantity: pack_quantity × quantity_per_pack
-    const packQuantity = parseFloat(currentItem.pack_quantity) || 0;
-    const quantityPerPack = parseFloat(currentItem.quantity_per_pack) || 0;
-    let baseUnitQuantity = packQuantity * quantityPerPack;
+    let baseUnitQuantity = 0;
+    let amount = 0;
 
-    const isGram = currentItem.unit === 'gram' || currentItem.unit === 'g';
-    const isProductKg = (selectedProduct.unit || 'kg') === 'kg';
+    if (isPriceMode) {
+      // Calculate quantity from total amount
+      amount = parseFloat(currentItem.total_amount) || 0;
+      const rate = parseFloat(currentItem.rate) || 0;
 
-    if (isGram && isProductKg) {
-      baseUnitQuantity = baseUnitQuantity / 1000;
+      if (amount <= 0 || rate <= 0) {
+        showError('Please enter valid amount and ensure rate is set');
+        return;
+      }
+      baseUnitQuantity = Math.ceil((amount / rate) * 1000) / 1000;
+    } else {
+      const packQuantity = parseFloat(currentItem.pack_quantity) || 0;
+      const quantityPerPack = parseFloat(currentItem.quantity_per_pack) || 0;
+      baseUnitQuantity = packQuantity * quantityPerPack;
+
+      const isGram = currentItem.unit === 'gram' || currentItem.unit === 'g';
+      const isProductKg = (selectedProduct.unit || 'kg') === 'kg';
+
+      if (isGram && isProductKg) {
+        baseUnitQuantity = baseUnitQuantity / 1000;
+      }
     }
 
 
     try {
-      // Fetch available batches for the selected product
       const response = await productService.getProductBatches(currentItem.product_id);
       if (response.success && Array.isArray(response.data)) {
         const batches = response.data.map(b => ({
@@ -300,11 +328,8 @@ const CatererSellComponent = () => {
           unit: b.unit || 'kg',
           expiry_date: b.expiry_date
         })).filter(b => b.batch && b.totalQuantity > 0);
-
-        // Calculate quantity already used in this session (other items in the bill)
         const preAllocated = {};
         sellData.items.forEach(item => {
-          // Check if it's the same product (consider mix items too if they track batches)
           const itemId = item.product_id ? parseInt(item.product_id) : null;
           const currentId = parseInt(currentItem.product_id);
 
@@ -339,55 +364,67 @@ const CatererSellComponent = () => {
           availableBatches: batches,
           preAllocatedQuantities: preAllocated,
           // Pass the converted quantity to dialog
-          initialQuantity: baseUnitQuantity.toString()
+          initialQuantity: baseUnitQuantity.toString(),
+          targetTotal: isPriceMode ? amount : null
         });
       } else {
         showError('No batches available for this product');
       }
     } catch (error) {
       console.error('Error fetching batches:', error);
-      showError('Failed to fetch product batches');
+      showError(`Failed to fetch product batches: ${error.message || 'Unknown error'}`);
     }
   };
 
   const handleBatchSelection = (selectedItem) => {
-    // Check if we need to convert back to grams for display
-    const isGram = currentItem.unit === 'gram' || currentItem.unit === 'g';
+    let effectiveRate = parseFloat(selectedItem.rate);
 
-    // If multiple batches are selected, create separate line items for each batch
+    if (batchSelectionDialog.targetTotal && parseFloat(batchSelectionDialog.targetTotal) > 0) {
+      let totalQty = 0;
+      if (selectedItem.batches && selectedItem.batches.length > 0) {
+        totalQty = selectedItem.batches.reduce((sum, b) => sum + (parseFloat(b.quantity) || 0), 0);
+      } else {
+        totalQty = parseFloat(selectedItem.quantity) || 0;
+      }
+
+      if (totalQty > 0) {
+        // Calculate rate required to achieve target total: Rate = Total / Quantity
+        // Note: We use high precision here to ensure Total comes out correct
+        effectiveRate = parseFloat(batchSelectionDialog.targetTotal) / totalQty;
+      }
+    }
+
     if (selectedItem.batches && selectedItem.batches.length > 0) {
       const newItems = selectedItem.batches.map(batchAlloc => {
-        // Calculate proportional costs
         // batchAlloc.quantity is in base unit (e.g. kg) from the dialog
         const qtyBase = parseFloat(batchAlloc.quantity);
-        const rate = parseFloat(selectedItem.rate);
+        const rate = effectiveRate;
         const gstPercent = parseFloat(selectedItem.gst);
 
-        // Price calculation always uses base unit quantity
+        // Price calculation uses base unit quantity
         const subtotal = qtyBase * rate;
         const gstAmount = (subtotal * gstPercent) / 100;
         const total = subtotal + gstAmount;
 
-        // If user wants grams, convert the display quantity
-        const qtyDisplay = isGram ? qtyBase * 1000 : qtyBase;
-
         return {
           ...selectedItem,
-          quantity: qtyDisplay,
-          unit: isGram ? 'gram' : selectedItem.unit,
+          quantity: qtyBase,
+          unit: selectedItem.unit || 'kg',
+          rate: rate.toString(), // Store the effective rate
           subtotal: subtotal,
           gst_amount: gstAmount,
           total: total,
-          // Explicitly set single batch info for this item
           batch_number: batchAlloc.batch,
           expiry_date: batchAlloc.expiry_date || null,
-          // Clear the batches array to avoid recursion/confusion
-          // IMPORTANT: Convert batch quantity to display unit if needed for consistent UI? 
-          // Actually, keeping batches in base unit (kg) is safer for logic, 
-          // but might be confusing if UI shows breakdown. 
-          // For now, let's keep batch quantity in base unit (kg) inside the object
-          // but the item.quantity is in display unit.
-          batches: [batchAlloc]
+          batch_number: batchAlloc.batch,
+          expiry_date: batchAlloc.expiry_date || null,
+          batches: [batchAlloc],
+          // Store pack details for display if not in price mode
+          ...(!isPriceMode && {
+            pack_quantity: currentItem.pack_quantity,
+            quantity_per_pack: currentItem.quantity_per_pack,
+            displayUnit: currentItem.unit
+          })
         };
       });
 
@@ -396,24 +433,39 @@ const CatererSellComponent = () => {
         items: [...prev.items, ...newItems]
       }));
     } else {
-      // Fallback for no batches (shouldn't happen with valid selection)
-      // selectedItem comes with base unit quantity (0.5 kg).
+      // Fallback for no batches
       const qtyBase = parseFloat(selectedItem.quantity);
-      // Recalculate if needed? Dialog does calculation. Assuming dialog returns correct totals for base unit.
-
-      const qtyDisplay = isGram ? qtyBase * 1000 : qtyBase;
 
       const itemWithBatchInfo = {
         ...selectedItem,
-        quantity: qtyDisplay,
-        unit: isGram ? 'gram' : selectedItem.unit,
+        quantity: qtyBase,
+        unit: selectedItem.unit || 'kg',
+        rate: effectiveRate.toString(), // Store the effective rate
+        rate: effectiveRate.toString(), // Store the effective rate
         batch_number: null,
-        expiry_date: null
+        expiry_date: null,
+        // Store pack details for display if not in price mode
+        ...(!isPriceMode && {
+          pack_quantity: currentItem.pack_quantity,
+          quantity_per_pack: currentItem.quantity_per_pack,
+          displayUnit: currentItem.unit
+        })
+      };
+
+      // Recalculate totals with effective rate
+      const subtotalWithoutGst = qtyBase * effectiveRate;
+      const gstAmt = (subtotalWithoutGst * parseFloat(selectedItem.gst || 0)) / 100;
+
+      const finalItem = {
+        ...itemWithBatchInfo,
+        subtotal: subtotalWithoutGst,
+        gst_amount: gstAmt,
+        total: subtotalWithoutGst + gstAmt
       };
 
       setSellData(prev => ({
         ...prev,
-        items: [...prev.items, itemWithBatchInfo]
+        items: [...prev.items, finalItem]
       }));
     }
     // Reset current item
@@ -543,14 +595,8 @@ const CatererSellComponent = () => {
       const rate = parseFloat(item.rate) || 0;
       const gst = parseFloat(item.gst) || 0;
 
-      // Handle unit conversion for calculation
-      // If unit is gram, convert to kg for price calculation (Rate is per kg)
-      let calcQuantity = quantity;
-      if (item.unit === 'gram' || item.unit === 'g') {
-        calcQuantity = quantity / 1000;
-      }
-
-      const subtotal = calcQuantity * rate;
+      // Quantity is always in base unit (kg) matching the rate unit
+      const subtotal = quantity * rate;
       const gstAmount = (subtotal * gst) / 100;
       const total = subtotal + gstAmount;
 
@@ -1146,6 +1192,32 @@ const CatererSellComponent = () => {
               Product Items
             </h2>
 
+            {/* Price Mode Toggle */}
+            <div className="mb-4 flex justify-end">
+              <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => isPriceMode && togglePriceMode()}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${!isPriceMode
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  By Quantity
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !isPriceMode && togglePriceMode()}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${isPriceMode
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                >
+                  By Price
+                </button>
+              </div>
+            </div>
+
             {/* Add Item Form */}
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
@@ -1171,41 +1243,66 @@ const CatererSellComponent = () => {
                   </select>
                 </div>
 
-                {/* Pack Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    No. of Packs <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="pack_quantity"
-                    value={currentItem.pack_quantity}
-                    onChange={handleCurrentItemChange}
-                    step="0.001"
-                    min="0"
-                    placeholder="e.g., 10"
-                    title="How many packs are you selling?"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                  />
-                </div>
+                {/* Quantity/Price Inputs */}
+                {isPriceMode ? (
+                  /* Price Mode Input */
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Total Amount (₹) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
+                      <input
+                        type="number"
+                        name="total_amount"
+                        value={currentItem.total_amount}
+                        onChange={handleCurrentItemChange}
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* Quantity Mode Inputs */
+                  <>
+                    <div className="md:col-span-1">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        No. of Packs <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="pack_quantity"
+                        value={currentItem.pack_quantity}
+                        onChange={handleCurrentItemChange}
+                        step="0.001"
+                        min="0"
+                        placeholder="e.g., 10"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        Weight/Pack <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="quantity_per_pack"
+                        value={currentItem.quantity_per_pack}
+                        onChange={handleCurrentItemChange}
+                        step="0.001"
+                        min="0"
+                        placeholder="e.g., 5"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </>
+                )}
 
-                {/* Quantity per Pack */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Weight/Pack <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity_per_pack"
-                    value={currentItem.quantity_per_pack}
-                    onChange={handleCurrentItemChange}
-                    step="0.001"
-                    min="0"
-                    placeholder="e.g., 5"
-                    title="Weight or quantity per pack"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
-                  />
-                </div>
+
 
                 {/* Unit */}
                 <div>
@@ -1406,7 +1503,13 @@ const CatererSellComponent = () => {
                             {item.product_name}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                            {item.quantity}
+                            {item.pack_quantity ? (
+                              <span>
+                                {item.pack_quantity} * {item.quantity_per_pack}
+                              </span>
+                            ) : (
+                              item.quantity
+                            )}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                             {item.unit}

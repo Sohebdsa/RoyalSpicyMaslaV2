@@ -117,7 +117,7 @@ const InventoryTable = ({ inventory, loading, onEdit, onDelete, onMerge }) => {
                 Value
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cost/KG
+                Cost/Unit
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stock Status
@@ -183,7 +183,7 @@ const InventoryTable = ({ inventory, loading, onEdit, onDelete, onMerge }) => {
                       <span className="text-gray-400">N/A</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">per kg</div>
+                  <div className="text-xs text-gray-500">per {item.unit || 'kg'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(parseFloat(item.total_quantity || 0))}`}>
