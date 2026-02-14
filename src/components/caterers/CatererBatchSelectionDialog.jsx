@@ -59,7 +59,11 @@ export default function CatererBatchSelectionDialog({
       if (!batchInfo) return;
       const preAllocated = preAllocatedQuantities[batchId] || 0;
       const effectiveTotal = Math.max(0, parseFloat(batchInfo.totalQuantity) - preAllocated);
-      const clamped = Math.min(Math.max(qty, 0), effectiveTotal);
+
+      // Round to 3 decimal places to avoid floating point issues
+      let clamped = Math.min(Math.max(qty, 0), effectiveTotal);
+      clamped = Math.round(clamped * 1000) / 1000;
+
       setSelectedAllocations(prev => {
         const idx = prev.findIndex(a => a.batch === batchId);
         if (clamped <= 0) {
@@ -162,12 +166,16 @@ export default function CatererBatchSelectionDialog({
   const handleSave = useCallback(() => {
     if (!product) return;
 
-    const requiredQuantity = parseFloat(quantity) || 0;
+    // fix: Ensure quantity is rounded to 3 decimal places to match allocation precision
+    let requiredQuantity = parseFloat(quantity) || 0;
+    requiredQuantity = Math.round(requiredQuantity * 1000) / 1000;
+
     if (requiredQuantity <= 0) {
       showError('Please enter a valid quantity');
       return;
     }
 
+    // Use a small epsilon for comparison, but rely on the rounded values
     if (totalSelectedQuantity + 0.0005 < requiredQuantity) {
       showError(
         `Insufficient allocation. Required: ${requiredQuantity.toFixed(3)} ${product.unit}, selected: ${totalSelectedQuantity.toFixed(3)} ${product.unit}`
